@@ -1,4 +1,4 @@
-[![Build Status](https://secure.travis-ci.org/angular-app/angular-app.png)](http://travis-ci.org/angular-app/angular-app)
+TODO!!!!
 
 # [AngularJS](http://www.angularjs.org/) CRUD application demo
 

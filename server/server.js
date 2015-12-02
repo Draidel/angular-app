@@ -1,104 +1,133 @@
-var fs = require('fs');
-var http = require('http');
-var https = require('https');
-var privateKey  = fs.readFileSync(__dirname + '/cert/privatekey.pem').toString();
-var certificate = fs.readFileSync(__dirname + '/cert/certificate.pem').toString();
-var credentials = {key: privateKey, cert: certificate};
+/** =================================================================
+ * RESTFUL API config at https://git.getsandbox.com/thinkful-pb-1.git
+ * Sandbox URL: http://thinkful-pb-1.getsandbox.com
+ * ==================================================================
+ */
 
-var express = require('express');
-var mongoProxy = require('./lib/mongo-proxy');
-var config = require('./config.js');
-var passport = require('passport');
-var security = require('./lib/security');
-var xsrf = require('./lib/xsrf');
-var protectJSON = require('./lib/protectJSON');
-require('express-namespace');
+/**
+ * Thinkful PB workshop 1 Sandbox
+ */
 
-var app = express();
-var secureServer = https.createServer(credentials, app);
-var server = http.createServer(app);
+function getAcct (state, req) {
+    state.accounts = state.accounts || [];
+    // route param {accountid} is available on req.params
+    // use lodash to find the account in the array
+    return _.find(state.accounts, function(current) {
+        return current.id === Number(req.params.accountid);
+    });
+}
 
-// Serve up the favicon
-app.use(express.favicon(config.server.distFolder + '/favicon.ico'));
+function getInvoice(state,req) {
+    var account = getAcct(state,req);
+    return _.find(account.invoices, function(invoice) {
+        return invoice.id === Number(req.params.invoiceid);
+    });
+}
 
-// First looks for a static file: index.html, css, images, etc.
-app.use(config.server.staticUrl, express.compress());
-app.use(config.server.staticUrl, express['static'](config.server.distFolder));
-app.use(config.server.staticUrl, function(req, res, next) {
-  res.send(404); // If we get here then the request for a static file is invalid
+function nextId (arr) {
+    var maxId = arr.reduce(function (prev, obj) {
+        var objId = Number(obj.id);
+        return (objId > prev) ? objId :prev;
+    }, 0);
+    return maxId + 1;
+}
+
+// A basic route returning a canned response
+Sandbox.define('/test', 'GET', function(req, res) {
+    //state.accounts.pop();
+    res.send('Hello world ' + state.accounts.length);
 });
 
-app.use(protectJSON);
 
-app.use(express.logger());                                  // Log requests to the console
-app.use(express.bodyParser());                              // Extract the data from the body of the request - this is needed by the LocalStrategy authenticate method
-app.use(express.cookieParser(config.server.cookieSecret));  // Hash cookies with this secret
-app.use(express.cookieSession());                           // Store the session in the (secret) cookie
-app.use(passport.initialize());                             // Initialize PassportJS
-app.use(passport.session());                                // Use Passport's session authentication strategy - this stores the logged in user in the session and will now run on any request
-app.use(xsrf);                                            // Add XSRF checks to the request
-security.initialize(config.mongo.dbUrl, config.mongo.apiKey, config.security.dbName, config.security.usersCollection); // Add a Mongo strategy for handling the authentication
-
-app.use(function(req, res, next) {
-  if ( req.user ) {
-    console.log('Current User:', req.user.firstName, req.user.lastName);
-  } else {
-    console.log('Unauthenticated');
-  }
-  next();
+// Using stateful behaviour to simulate creating accounts
+Sandbox.define('/accounts', 'POST', function(req, res) {
+    // retrieve accounts or, if there are none, init to empty array
+    state.accounts = state.accounts || [];
+    // generate next id
+    req.body.id = nextId(state.accounts);
+    // persist account by adding to the state object
+    state.accounts.push(req.body);
+    return res.json({status: "ok"});
 });
 
-app.namespace('/databases/:db/collections/:collection*', function() {
-  app.all('/', function(req, res, next) {
-    if ( req.method !== 'GET' ) {
-      // We require the user is authenticated to modify any collections
-      security.authenticationRequired(req, res, next);
+// Using stateful behaviour to simulate getting all accounts
+Sandbox.define('/accounts', 'GET', function(req, res) {
+    state.accounts = state.accounts || [];
+    return res.json(state.accounts);
+});
+
+// Using named route parameters to simulate getting a specific accounts
+Sandbox.define('/accounts/{accountid}', 'GET', function(req, res) {
+    var account = getAcct(state, req)
+    return res.json(account);
+});
+
+// Using named route parameters to simulate deleting a specific accounts
+Sandbox.define('/accounts/{accountid}', 'DELETE', function(req, res){
+    var account = getAcct(state, req);
+    var accountId = Number(account.id);
+    // use lodash to remove account from the array
+    _.remove(state.accounts, function(current) {
+        return current.id === accountId;
+    });
+    return res.json({
+        status: "ok",
+        tmp: tmp,
+        count: state.accounts.length
+    });
+});
+
+Sandbox.define('/accounts/{accountid}','POST', function(req, res){
+    var account = getAcct(state, req)
+    account.name = req.body.name;
+    
+    res.type('application/json');
+    res.status(200);
+    res.json({"status": "ok"});
+})
+
+Sandbox.define('/accounts/{accountid}/invoices', 'POST', function(req, res) {
+    var account = getAcct(state, req)
+    
+    account.invoices = account.invoices || [];
+    req.body.id = nextId(account.invoices);
+    account.invoices.push(req.body);
+    return res.json({status: "ok"});
+});
+
+Sandbox.define('/accounts/{accountid}/invoices', 'GET', function(req, res) {
+    var account = getAcct(state, req)
+    account.invoices = account.invoices || [];
+    return res.json(account.invoices);
+});
+
+Sandbox.define('/accounts/{accountid}/invoices/{invoiceid}', 'GET', function(req, res) {
+    var account = getAcct(state, req)
+    account.invoices = account.invoices || [];
+    var invoiceid = req.params.invoiceid;
+    var invoice = _.find(account.invoices, { "invoiceid": invoiceid});
+    return res.json(invoice);
+});
+
+Sandbox.define('/accounts/{accountid}/invoices/{invoiceid}', 'DELETE', function(req, res) {
+    var account = getAcct(state, req)
+    account.invoices = account.invoices || [];
+    var invoiceid = req.params.invoiceid;
+    var invoice = _.remove(account.invoices, function (invoice) {
+        return Number(invoice.id) === Number(invoiceid);
+    });
+    return res.json({status: "ok"});
+});
+
+Sandbox.define('/accounts/{accountid}/invoices/{invoiceid}/','POST', function(req, res){
+    var invoice = getInvoice(state, req);
+    if(invoice) {
+        invoice.name = req.body.name;
+        invoice.amount = req.body.amount;
+        invoice.due = req.body.due;
+        res.json({"status": "ok"});
     } else {
-      next();
+        res.json({error: 'Invoice not found'});
     }
-  });
-  app.all('/', function(req, res, next) {
-    if ( req.method !== 'GET' && (req.params.collection === 'users' || req.params.collection === 'projects') ) {
-      // We require the current user to be admin to modify the users or projects collection
-      return security.adminRequired(req, res, next);
-    }
-    next();
-  });
-  // Proxy database calls to the MongoDB
-  app.all('/', mongoProxy(config.mongo.dbUrl, config.mongo.apiKey));
 });
 
-app.post('/login', security.login);
-app.post('/logout', security.logout);
-
-// Retrieve the current user
-app.get('/current-user', security.sendCurrentUser);
-
-// Retrieve the current user only if they are authenticated
-app.get('/authenticated-user', function(req, res) {
-  security.authenticationRequired(req, res, function() { security.sendCurrentUser(req, res); });
-});
-
-// Retrieve the current user only if they are admin
-app.get('/admin-user', function(req, res) {
-  security.adminRequired(req, res, function() { security.sendCurrentUser(req, res); });
-});
-
-// This route deals enables HTML5Mode by forwarding missing files to the index.html
-app.all('/*', function(req, res) {
-  // Just send the index.html for other files to support HTML5Mode
-  res.sendfile('index.html', { root: config.server.distFolder });
-});
-
-// A standard error handler - it picks up any left over errors and returns a nicely formatted server 500 error
-app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
-
-// Start up the server on the port specified in the config
-server.listen(config.server.listenPort, 'localhost', 511, function() {
-  // // Once the server is listening we automatically open up a browser
-  var open = require('open');
-  open('http://localhost:' + config.server.listenPort + '/');
-});
-console.log('Angular App Server - listening on port: ' + config.server.listenPort);
-secureServer.listen(config.server.securePort);
-console.log('Angular App Server - listening on secure port: ' + config.server.securePort);
