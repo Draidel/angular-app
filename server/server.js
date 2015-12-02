@@ -3,7 +3,6 @@
  * Sandbox URL: http://thinkful-pb-1.getsandbox.com
  * ==================================================================
  */
-
 /**
  * Thinkful PB workshop 1 Sandbox
  */
@@ -80,7 +79,7 @@ Sandbox.define('/accounts/{accountid}', 'DELETE', function(req, res){
 Sandbox.define('/accounts/{accountid}','POST', function(req, res){
     var account = getAcct(state, req)
     account.name = req.body.name;
-    
+
     res.type('application/json');
     res.status(200);
     res.json({"status": "ok"});
@@ -88,7 +87,7 @@ Sandbox.define('/accounts/{accountid}','POST', function(req, res){
 
 Sandbox.define('/accounts/{accountid}/invoices', 'POST', function(req, res) {
     var account = getAcct(state, req)
-    
+
     account.invoices = account.invoices || [];
     req.body.id = nextId(account.invoices);
     account.invoices.push(req.body);
@@ -130,4 +129,3 @@ Sandbox.define('/accounts/{accountid}/invoices/{invoiceid}/','POST', function(re
         res.json({error: 'Invoice not found'});
     }
 });
-
