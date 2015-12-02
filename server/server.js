@@ -4,7 +4,7 @@
  * ==================================================================
  */
 /**
- * Thinkful PB workshop 1 Sandbox
+ * Thinkful PB workshop 1 Sandbox config
  */
 
 function getAcct (state, req) {
